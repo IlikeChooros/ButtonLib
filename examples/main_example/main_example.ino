@@ -23,13 +23,14 @@ License: MIT License
 //  +-----------------+
 //  |                 |
 //  |    Arduino      |
-//  | A3 A2    GND V5 |
+//  | D3 D2    GND    |
 //  +-----------------+
-//    |   |     |   |
-//    |   |     |   |
-//    |   +-BTN-+   |
-//    |             |
-//    +-----BTN-----+
+//    |   |     |  
+//    |   |     +--+
+//    |   |     |  |
+//    |   +-BTN-+  |
+//    |            |
+//    +-----BTN----+
 // You should connect one leg of the button to pin 2 and the other to GND
 Button button(2); // Button on pin 2, by defeault uses INPUT_PULLUP mode
 Button button2; // will be initialized in setup
