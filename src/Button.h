@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <math.h>
 
 #define DEBOUNCE_DELAY 50 // 50ms debounce delay
 #define HOLD_TIME_DEFAULT 900 // Default hold time in milliseconds (after this delay, the callback will be rapidly triggered)
@@ -20,6 +21,7 @@ namespace internal {
     #endif
 }
 
+// Main ButtonLib class
 class Button {
 public:
     static constexpr unsigned int debounceDelay = DEBOUNCE_DELAY;
@@ -28,9 +30,11 @@ public:
     
     // For the future, I might add more modes, but for now I'll use just two:
     enum ButtonPinMode {
-        MODE_INPUT_PULLUP,
-        MODE_INPUT
+        MODE_INPUT_PULLUP, // Will use INPUT_PULLUP mode, when setting the pin mode
+        MODE_INPUT // Will use INPUT mode, when setting the pin mode
     };
+
+    Button() = default; // Default constructor, initializes the button with no pin
 
     // Hold button constructor
     Button(int pin, ButtonPinMode mode = MODE_INPUT_PULLUP)
@@ -39,11 +43,36 @@ public:
         m_state.mode = int(mode);
     }
 
+    Button(const Button&) = delete; // Disable copy constructor
+    Button& operator=(const Button&) = delete; // Disable copy assignment
+
+    Button(Button&&) = default; // Enable move constructor
+    Button& operator=(Button&&) = default; // Enable move assignment
+
     // Initialize the button, setting the pin mode and initial state
     void begin();
 
     // Read the button state, and possibly trigger the callback
     void read();
+    
+    // Check if the button is currently pressed
+    bool isPressed() const {
+        return m_state.state == m_state.pressed_state;
+    }
+
+    // Check if the button was pressed for a certain amount of time
+    // Returns true if the button was pressed for at least 'ms' milliseconds
+    bool heldFor(unsigned int ms) const {
+        return (m_state.last_hold_timer != 0) && 
+               (millis() - m_state.begin_hold_timer >= ms);
+    }
+
+    // Get the elapsed time since the button was pressed. Not exactly the hold time, as it may return 
+    // non-zero value even if the button currently is not pressed, you may want to also use isPressed() method
+    unsigned int holdTime() const {
+        if (m_state.begin_hold_timer == 0) return 0;
+        return millis() - m_state.begin_hold_timer;
+    }
 
     // Set the on press callback
     Button& onPress(internal::callback_t callback) {
@@ -65,16 +94,18 @@ public:
 
 private:
 
+    // Total size of the state structure is 128bits = 16 bytes
     struct pin_state_t {
-        unsigned int pin: 26;
-        unsigned int mode: 2;
-        unsigned int state: 1;
-        unsigned int last_state: 1;
-        unsigned int pressed_state: 1;
-        unsigned int hold_state: 1;
-        unsigned int last_debounce_time;
-        unsigned int current_hold_time;
-        unsigned int last_hold_timer;
+        unsigned int pin: 10; // Pin number, max 1023
+        unsigned int mode: 1; // Pin mode (0 for INPUT_PULLUP, 1 for INPUT)
+        unsigned int state: 1; // Current state of the button (pressed or released)
+        unsigned int last_state: 1; // Last state of the button (pressed or released)
+        unsigned int pressed_state: 1; // State that is considered pressed (LOW for INPUT_PULLUP, HIGH for INPUT)
+        unsigned int current_hold_time: 18; // Current hold time, used for rapid callbacks
+        // Timers
+        unsigned int begin_hold_timer; // Time point when the button was pressed
+        unsigned int last_debounce_timer; // Last time the state was changed (for debouncing)
+        unsigned int last_hold_timer; // Last time the hold callback was triggered
     } m_state;
 
     internal::callback_t m_on_press{nullptr}, 
